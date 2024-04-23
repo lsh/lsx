@@ -1,196 +1,113 @@
-from .div import Div
-from .body import Body
-from .text import Text
-from .html import Html
-from .head import Head
-from .meta import Meta
-from .hn import H1, H2, H3
+from utils.variant import Variant
 from collections.dict import Dict
+from collections.list import List
 
 
-@always_inline
-fn _dict_to_attr_string(dict: Dict[String, String]) -> String:
-    var out = String("")
-
-    for item in dict.items():
-        out += " "
-        out += item[].key
-        out += '="'
-        out += item[].value
-        out += '"'
-    return out
-
-
-trait HTML(CollectionElement):
-    fn render_as_html(self) -> String:
+trait Htmlable:
+    fn render_as_html(self, inout stream: String):
         ...
 
 
-struct Tuple[*element_types: HTML](Sized, CollectionElement, HTML):
-    """The type of a literal tuple expression.
+@value
+struct HtmlNode(Htmlable):
+    var tag: String
+    var attributes: Dict[String, String]
+    var children: List[Html]
 
-    A tuple consists of zero or more values, separated by commas.
+    fn __init__(inout self, tag: String, *children: Html, **attributes: String):
+        var children_ = List[Html]()
+        for child in children:
+            children_.append(child[])
+        self.children = children_
+        self.tag = tag
+        self.attributes = attributes._dict
 
-    Parameters:
-        element_types: The elements type.
-    """
+    fn render_as_html(self, inout stream: String):
+        stream += "<"
+        stream += self.tag
+        for item in self.attributes.items():
+            stream += " "
+            stream += item[].key
+            stream += '="'
+            stream += item[].value
+            stream += '"'
+        if len(self.children) == 0:
+            stream += "/>"
+        else:
+            stream += ">"
+            for child in self.children:
+                child[].render_as_html(stream)
+            stream += "</"
+            stream += self.tag
+            stream += ">"
 
-    alias _mlir_type = __mlir_type[
-        `!kgen.pack<:!kgen.variadic<`,
-        HTML,
-        `> `,
-        +element_types,
-        `>`,
-    ]
 
-    var storage: Self._mlir_type
-    """The underlying storage for the tuple."""
-
-    @always_inline("nodebug")
-    fn __init__(inout self, *args: *element_types):
-        """Construct the tuple.
-
-        Args:
-            args: Initial values.
-        """
-        self = Self(storage=args)
-
-    @always_inline("nodebug")
-    fn __init__(
-        inout self,
-        *,
-        storage: VariadicPack[_, _, HTML, element_types],
-    ):
-        """Construct the tuple from a low-level internal representation.
-
-        Args:
-            storage: The variadic pack storage to construct from.
-        """
-        # Mark 'storage' as being initialized so we can work on it.
-        __mlir_op.`lit.ownership.mark_initialized`(
-            __get_mvalue_as_litref(self.storage)
-        )
-
-        @parameter
-        fn initialize_elt[idx: Int]():
-            # TODO: We could be fancier and take the values out of an owned
-            # pack. For now just keep everything simple and copy the element.
-            initialize_pointee(
-                UnsafePointer(self.__refitem__[idx]()),
-                storage.get_element[idx]()[],
-            )
-
-        unroll[initialize_elt, Self.__len__()]()
-
-    fn __del__(owned self):
-        """Destructor that destroys all of the elements."""
-
-        # Run the destructor on each member, the destructor of !kgen.pack is
-        # trivial and won't do anything.
-        @parameter
-        fn destroy_elt[idx: Int]():
-            destroy_pointee(UnsafePointer(self.__refitem__[idx]()))
-
-        unroll[destroy_elt, Self.__len__()]()
-
-    @always_inline("nodebug")
-    fn __copyinit__(inout self, existing: Self):
-        """Copy construct the tuple.
-
-        Args:
-            existing: The value to copy from.
-        """
-        # Mark 'storage' as being initialized so we can work on it.
-        __mlir_op.`lit.ownership.mark_initialized`(
-            __get_mvalue_as_litref(self.storage)
-        )
-
-        @parameter
-        fn initialize_elt[idx: Int]():
-            var existing_elt_ptr = UnsafePointer(existing.__refitem__[idx]())
-
-            initialize_pointee(
-                UnsafePointer(self.__refitem__[idx]()),
-                __get_address_as_owned_value(existing_elt_ptr.value),
-            )
-
-        unroll[initialize_elt, Self.__len__()]()
-
-    @always_inline("nodebug")
-    fn __moveinit__(inout self, owned existing: Self):
-        """Move construct the tuple.
-
-        Args:
-            existing: The value to move from.
-        """
-        # Mark 'storage' as being initialized so we can work on it.
-        __mlir_op.`lit.ownership.mark_initialized`(
-            __get_mvalue_as_litref(self.storage)
-        )
-
-        @parameter
-        fn initialize_elt[idx: Int]():
-            initialize_pointee(
-                UnsafePointer(self.__refitem__[idx]()),
-                existing.__refitem__[idx]()[],
-            )
-
-        unroll[initialize_elt, Self.__len__()]()
+@value
+struct Html(Htmlable):
+    alias _type = Variant[String, HtmlNode]
+    var data: Self._type
 
     @always_inline
-    @staticmethod
-    fn __len__() -> Int:
-        """Return the number of elements in the tuple.
+    fn render_as_html(self, inout stream: String):
+        if self.data.isa[String]():
+            stream += self.data.get[String]()[]
+        else:
+            var node = self.data.get[HtmlNode]()
+            node[].render_as_html(stream)
 
-        Returns:
-            The tuple length.
-        """
+    fn __init__(inout self, node: HtmlNode):
+        self.data = node
 
-        @parameter
-        fn variadic_size(x: __mlir_type[`!kgen.variadic<`, HTML, `>`]) -> Int:
-            return __mlir_op.`pop.variadic.size`(x)
+    fn __init__(inout self, text: String):
+        self.data = text
 
-        alias result = variadic_size(element_types)
-        return result
+    fn __init__(inout self, text: StringLiteral):
+        self.data = str(text)
 
-    @always_inline("nodebug")
-    fn __len__(self) -> Int:
-        """Get the number of elements in the tuple.
 
-        Returns:
-            The tuple length.
-        """
-        return Self.__len__()
+@always_inline
+fn div(*children: Html, **attributes: String) -> Html:
+    var children_ = List[Html]()
+    for child in children:
+        children_.append(child[])
+    return HtmlNode(tag="div", children=children_, attributes=attributes._dict)
 
-    @always_inline("nodebug")
-    fn __refitem__[
-        idx: Int,
-        mutability: __mlir_type.i1,
-        self_life: AnyLifetime[mutability].type,
-    ](self_lit: Reference[Self, mutability, self_life]._mlir_type) -> Reference[
-        element_types[idx.value], mutability, self_life
-    ]:
-        # Return a reference to an element at the specified index, propagating
-        # mutability of self.
-        var storage_kgen_ptr = Reference(
-            Reference(self_lit)[].storage
-        ).get_legacy_pointer().address
 
-        # KGenPointer to the element.
-        var elt_kgen_ptr = __mlir_op.`kgen.pack.gep`[index = idx.value](
-            storage_kgen_ptr
-        )
-        # Convert to an immortal mut reference, which conforms to self_life.
-        return UnsafePointer(elt_kgen_ptr)[]
+@always_inline
+fn p(*children: Html, **attributes: String) -> Html:
+    var children_ = List[Html]()
+    for child in children:
+        children_.append(child[])
+    return HtmlNode(tag="p", children=children_, attributes=attributes._dict)
 
-    @always_inline
-    fn render_as_html(self) -> String:
-        var out = String()
 
-        @parameter
-        fn _render[idx: Int]():
-            out += self.__refitem__[idx]()[].render_as_html()
+@always_inline
+fn body(*children: Html, **attributes: String) -> Html:
+    var children_ = List[Html]()
+    for child in children:
+        children_.append(child[])
+    return HtmlNode(tag="body", children=children_, attributes=attributes._dict)
 
-        unroll[_render, Self.__len__()]()
 
-        return out
+@always_inline
+fn h1(*children: Html, **attributes: String) -> Html:
+    var children_ = List[Html]()
+    for child in children:
+        children_.append(child[])
+    return HtmlNode(tag="h1", children=children_, attributes=attributes._dict)
+
+
+@always_inline
+fn head(*children: Html, **attributes: String) -> Html:
+    var children_ = List[Html]()
+    for child in children:
+        children_.append(child[])
+    return HtmlNode(tag="head", children=children_, attributes=attributes._dict)
+
+
+@always_inline
+fn meta(*children: Html, **attributes: String) -> Html:
+    var children_ = List[Html]()
+    for child in children:
+        children_.append(child[])
+    return HtmlNode(tag="meta", children=children_, attributes=attributes._dict)

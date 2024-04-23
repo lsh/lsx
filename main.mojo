@@ -2,17 +2,19 @@ from lsx import *
 
 
 fn main():
-    var html = Html(
-        Head(Meta(charset="utf-8")),
-        Body(
-            H1(Text("This is an H1")),
-            Div(
-                Div(
-                    Div(Text("Some text"), id="text"),
-                    Text("other text"),
+    var html = String()
+    HtmlNode(
+        "html",
+        head(meta(charset="utf-8")),
+        body(
+            h1("This is an H1"),
+            div(
+                div(
+                    div("Some text", id="text"),
+                    "other text",
                 ),
                 background="black",
             ),
         ),
-    ).render_as_html()
+    ).render_as_html(html)
     print(html)
