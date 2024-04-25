@@ -14,8 +14,9 @@ fn main():
     var out = String()
     var data = Division(
         UnorderedList(ListItem(Text("a"))),
+        # UnorderedList(Division(Text("a"))), # fails to compile, as it should
         Anchor(
-            Heading1(Division(Text("a"))),
+            Heading1(Emphasis(Text("a"))),
             Main(class_="main"),
         ),
         role="button",

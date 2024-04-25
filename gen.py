@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
 
                 if len(permitted_child_elements) > 0:
-                    elem += f"    fn __init__[*Ts: Htmlable](inout self, *elements: {struct_name}Args, {kw}):\n"
+                    elem += f"    fn __init__(inout self, *elements: {struct_name}Args, {kw}):\n"
                     elem += f"        self.children = List[Element]()\n"
                     elem += f"        for elem in elements:\n"
                     elem += f"            self.children.append(elem[].to_element())\n"
