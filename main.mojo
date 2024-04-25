@@ -1,20 +1,23 @@
-from lsx import *
+from lsx import (
+    Division,
+    Anchor,
+    Heading1,
+    Main,
+    Text,
+    Emphasis,
+    UnorderedList,
+    ListItem,
+)
 
 
 fn main():
-    var html = String()
-    HtmlNode(
-        "html",
-        head(meta(charset="utf-8")),
-        body(
-            h1("This is an H1"),
-            div(
-                div(
-                    div("Some text", id="text"),
-                    "other text",
-                ),
-                background="black",
-            ),
+    var out = String()
+    var data = Division(
+        UnorderedList(ListItem(Text("a"))),
+        Anchor(
+            Heading1(Division(Text("a"))),
+            Main(class_="main"),
         ),
-    ).render_as_html(html)
-    print(html)
+        role="button",
+    ).to_element().render_as_html(out)
+    print(out)
