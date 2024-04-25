@@ -1,24 +1,11 @@
-from lsx import (
-    Division,
-    Anchor,
-    Heading1,
-    Main,
-    Text,
-    Emphasis,
-    UnorderedList,
-    ListItem,
-)
+from lsx import *
 
 
 fn main():
     var out = String()
     var data = Division(
-        UnorderedList(ListItem(Text("a"))),
-        # UnorderedList(Division(Text("a"))), # fails to compile, as it should
-        Anchor(
-            Heading1(Emphasis(Text("a"))),
-            Main(class_="main"),
-        ),
+        UnorderedList(ListItem("a")),
+        Anchor(Heading1(Emphasis("a")), Main(class_="main")),
         role="button",
-    ).to_element().render_as_html(out)
+    ).render_as_html(out)
     print(out)

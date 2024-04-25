@@ -143,3 +143,17 @@ struct Element(Htmlable):
     @always_inline
     fn to_element(self) -> Element:
         return self
+
+
+@always_inline
+fn _create_element(
+    children: VariadicListMem[Element, _, _],
+    tag: String,
+    attributes: Dict[String, Attribute],
+) -> Element:
+    var children_ = List[Element]()
+
+    for elem in children:
+        children_.append(elem[])
+
+    return Node(tag=tag, children=children_, attributes=attributes)
