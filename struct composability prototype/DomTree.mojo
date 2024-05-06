@@ -24,7 +24,14 @@ trait Html:
     fn tag()->String: ...
 
 fn H[T:Html](
-    *args:Variant[Element,String,StringLiteral,CSS_T,EventHandler],
+    *args:
+        Variant[
+            Element,
+            String,
+            StringLiteral,
+            CSS_T,
+            EventHandler
+        ],
     **kwargs: String
 ) -> Element: 
     var tmp = Element(T.tag())
@@ -61,7 +68,7 @@ struct Element:
     fn __init__(inout self,tag:String):
         self.component = None
         self.tag=tag
-        self.inner=__type_of(self.inner)()
+        self.inner=List[Variant[Self,NoneType]]()
         self.attributes = Dict[String,String]()
     
     fn __copyinit__(inout self,other:Self):
@@ -82,6 +89,10 @@ struct Div:
     fn tag()->String: return "Div"
 @value
 struct H1:
+    @staticmethod
+    fn tag()->String: return "H1"
+@value
+struct H2:
     @staticmethod
     fn tag()->String: return "H1"
 @value

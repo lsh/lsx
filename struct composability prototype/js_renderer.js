@@ -6,7 +6,7 @@ async function Event(data) {
     });
 
     const json = await response.json();
-    var render_res = Render(json,json["instance_name"]) //append
+    var render_res = Render(json,json["instance_name"])
     var b = document.createElement("BODY")
     b.appendChild(render_res)
     document.body=b

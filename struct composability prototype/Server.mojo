@@ -6,6 +6,7 @@ struct Server[*Ts:Component]:
     var socket:PythonObject
     var component_manager:ComponentManager[Ts]
     var js_renderer: String
+    var extra_css:String
     fn __init__(inout self,owned arg:ComponentManager[Ts]):
         self.socket=None
         self.component_manager=arg
@@ -16,6 +17,7 @@ struct Server[*Ts:Component]:
             print("Error importing js_renderer.js: " + str(e))
             self.js_renderer = ""
             #TODO: set self.error = True
+        self.extra_css = " "
     
     fn Start[App_T:Component](inout self):
         constrained[
@@ -55,11 +57,17 @@ struct Server[*Ts:Component]:
                     var response:String = "HTTP/1.0 200 OK\n\n"
                     response += "<html><head><link rel='icon' href='data:;base64,='>"
                     response += "<script>"+self.js_renderer+"</script>"
+                    response += "<link rel='stylesheet' href='/styles.css'>"
                     response += "<meta charset='UTF-8'></head><body>"
                     response+="</body></html>"
                     client[0].sendall(PythonObject(response).encode())
                     client[0].close()
-                elif request[1]=="/event": #Event
+                elif request[1]=="/styles.css":
+                    var response:String = "HTTP/1.0 200 OK\n\n"
+                    response += self.extra_css
+                    client[0].sendall(PythonObject(response).encode())
+                    client[0].close()
+                elif request[1]=="/event":
                     var json_req = Python.import_module("json").loads(
                         full_request[-1]
                     )
@@ -82,11 +90,13 @@ struct Server[*Ts:Component]:
                                                     "",
                                                     "type",
                                                     event_name,
-                                                    "data"  
+                                                    "data",
+                                                    self.component_manager.states
                                                 )
                                             )
                                         except e: print('error component.event()',e)
                                 unroll[_loop,len(VariadicList(Self.Ts))]()
+                                
                         _=event_name
                         _=instance_name
                     
@@ -102,6 +112,9 @@ struct Server[*Ts:Component]:
                     self.component_manager.delete_instances[
                         only_unrendered=True
                     ]()
+
+                    print("self.states:")
+                    for i in self.component_manager.states: print("\t",i[])
 
                     client[0].sendall(PythonObject(response).encode())
                     client[0].close()

@@ -2,13 +2,30 @@ from Component import *
 from DomTree import *
 from python import Python
 @value
+struct Instances:
+    var states: Dict[
+        String,     #InstanceName
+        UnsafePointer[NoneType]
+    ]
+
+    fn __getitem__[
+        T:Component,
+        n:StringLiteral
+    ](self)->UnsafePointer[T]:
+        try:
+            return self.states[n].bitcast[T]()
+        except e: ...
+        return UnsafePointer[T]()
+
+
+@value
 struct ComponentManager[*Ts:Component]:
     var states: Dict[
         String,     #InstanceName
         UnsafePointer[NoneType]
     ]
     var types: Dict[String,String] #InstanceName,ComponentName
-    var previously_rendered_instances: List[String] #InstanceName
+    var previously_rendered_instances: List[String] #InstanceNames
 
     fn __init__(inout self):
         constrained[
@@ -21,31 +38,6 @@ struct ComponentManager[*Ts:Component]:
         self.previously_rendered_instances = 
             __type_of(self.previously_rendered_instances)()
 
-    #only for debug, rendering is on the client-side from json
-    fn RenderIntoHtml(
-        inout self, 
-        inout elements: Element,
-        indent:Int=0
-    )->String:
-        var tmp_result: String = ""
-        var indent_ = String("")
-        for i in range(indent): indent_+="\t"
-        if elements.tag == "TextNode": 
-            try: tmp_result+= indent_+ elements.attributes["value"]
-            except e: print(e)
-        else: 
-            tmp_result += "\n"+indent_+"<"+elements.tag+" "
-            for a in elements.attributes:
-                try: tmp_result+=a[]+"=\""+elements.attributes[a[]]+"\" "
-                except e:print(e)
-            tmp_result += ">\n"
-            for i in elements.inner:
-                tmp_result += self.RenderIntoHtml(
-                    i[]._get_ptr[Element]()[],
-                    indent=indent+1
-                )
-            tmp_result += "\n"+indent_ +"</"+elements.tag+">"
-        return tmp_result
     
     fn RenderIntoJson[First:Bool=False](
         inout self, 
@@ -81,9 +73,9 @@ struct ComponentManager[*Ts:Component]:
         #TODO: check not instance_name rendered twice
         @parameter
         if first: self.previously_rendered_instances.clear() 
-
+        
         if arg.component:
-            var tmp = arg.component.value()
+            var tmp = arg.component._value_copy()
             @parameter
             fn loop[I:Int]():
                 if is_component[Ts[I]](tmp.component_name): 
@@ -97,13 +89,13 @@ struct ComponentManager[*Ts:Component]:
                     var tmp = i[]._get_ptr[Element]()[]
                     self.RenderComponentsIntoElements[False](tmp)
                     i[]._get_ptr[Element]()[] = tmp
-
+    
     fn CreateInstance[T:Component](
         inout self,
         c:Component_T
     )->UnsafePointer[T]:
         var tmp=UnsafePointer[T].alloc(1)
-        initialize_pointee(tmp,T())
+        initialize_pointee_move(tmp,T())
         self.states[c.instance_name]=tmp.bitcast[NoneType]()
         self.types[c.instance_name]=c.component_name
         return tmp
@@ -126,8 +118,6 @@ struct ComponentManager[*Ts:Component]:
         inout e:Element,
         c: Component_T
     ):
-        #if instance_name in dict InstanceManager 
-        #else create instance 
         var instance = self.GetInstance[T](c)#T()
         try: 
             var tmp=instance[].render(c.props)
@@ -140,7 +130,6 @@ struct ComponentManager[*Ts:Component]:
         )
 
     fn delete_instances[only_unrendered:Bool=False](inout self):
-        var counter = 0
         var deleted = Dict[String,Bool]()
         for instance_name in self.states:
             if self.types.find(instance_name[]):
@@ -161,22 +150,22 @@ struct ComponentManager[*Ts:Component]:
                                     if found: return
                                 _=self.types.pop(instance_name[])
                                 deleted[instance_name[]]=True
-                                destroy_pointee(tmp_ptr.bitcast[Ts[I]]().value)  
+                                destroy_pointee(tmp_ptr.bitcast[Ts[I]]())  
                                 tmp_ptr.free()
-                                counter+=1
                             except e:print("delete_instances/loop",e)
                     unroll[loop,len(VariadicList(Ts))]()
                     _=tmp_ptr
                 except e: print("delete_instances",e)
         try:
-            print("__del__() :",counter)
+            print("__del__() :",len(deleted))
             for i in deleted: 
                 var tmp_del = self.states.pop(i[])
                 print("\t",i[])
         except e: print("delete_instances",e)
         @parameter
         if only_unrendered == False: 
-            self.previously_rendered_instances.clear()
+            self.previously_rendered_instances=
+                __type_of(self.previously_rendered_instances)()
         _=deleted
         _=self.states
         _=self.types

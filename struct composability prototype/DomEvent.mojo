@@ -1,5 +1,6 @@
 from utils.variant import Variant
 from Component import *
+from ComponentManager import *
 
 @value
 struct DomEvent:
@@ -9,6 +10,7 @@ struct DomEvent:
     var type: String #TODO: "MouseEnter"
     var name:String # On[DomEvent.Click]("name")
     var data:String #TODO: json, depend on event type
+    var Instances: Instances
 
 @value
 struct EventHandler:

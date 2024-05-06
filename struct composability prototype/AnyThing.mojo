@@ -7,23 +7,25 @@ struct AnyThing:
     fn __init__[T:CollectionElement](inout self,arg:T):
         self.p = __type_of(self.p).alloc(1)
         var tmp = UnsafePointer[T].alloc(1)
-        __get_address_as_uninit_lvalue(tmp.value)=(arg)
+        initialize_pointee_move(tmp,arg)
         self.p[]=int(tmp)
         
         self.free_function = __type_of(self.free_function).alloc(1)
         fn f(to_free :Int)escaping->None: 
             var tmp_ = UnsafePointer[T](address=to_free)
             destroy_pointee(tmp_)
-            #_=__get_address_as_owned_value(tmp.value)^ #<- T.__del__ ❤️‍🔥
             tmp_.free()
         var ptr = UnsafePointer[fn(Int)escaping->None].alloc(1)
-        initialize_pointee[fn(Int)escaping->None](ptr,f)
+        initialize_pointee_move[fn(Int)escaping->None](ptr,f)
         self.free_function[]=int(ptr)
 
         self.ref_count=Pointer[Int].alloc(1)
         self.ref_count[]=1
 
     fn deref[T:CollectionElement](inout self)->T: 
+        return UnsafePointer[T](address=self.p[])[]
+    
+    fn __getitem__[T:CollectionElement](inout self)->T: 
         return UnsafePointer[T](address=self.p[])[]
 
     fn set[T:CollectionElement](inout self,arg:T): 
@@ -33,16 +35,13 @@ struct AnyThing:
         fn f(to_free :Int)escaping->None:
             var tmp_ = UnsafePointer[T](address=to_free)
             destroy_pointee(tmp_)
-            #_=__get_address_as_owned_value(tmp_.value)^
             tmp_.free()
         var ptr = UnsafePointer[fn(Int)escaping->None].alloc(1)
-        #__get_address_as_uninit_lvalue(ptr.value)=f
-        initialize_pointee[fn(Int)escaping->None](ptr,f)
+        initialize_pointee_move[fn(Int)escaping->None](ptr,f)
         self.free_function[]=int(ptr)
     
         var tmp = UnsafePointer[T].alloc(1)
-        initialize_pointee(tmp,arg)
-        #__get_address_as_uninit_lvalue(tmp.value)=arg
+        initialize_pointee_move(tmp,arg)
         self.p[]=int(tmp)
     
     fn __copyinit__(inout self, other:Self):
