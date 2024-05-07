@@ -1,31 +1,49 @@
 from Component import *
 from DomTree import *
 from python import Python
+from app import m_
+
+def PythonDict()->PythonObject:
+    var tmp_result = Python.evaluate("lambda **kwargs: kwargs")
+    return tmp_result(empty=True)
+
 @value
-struct Instances:
-    var states: Dict[
-        String,     #InstanceName
-        UnsafePointer[NoneType]
-    ]
+struct Capsule(CollectionElement):
+    var value: UnsafePointer[NoneType]
+    var type: String
+    var instance_name: String
+    var rendered: Bool
+    fn __init__(inout self):
+        self.value = UnsafePointer[NoneType]()
+        self.rendered = False
+        self.type= "default"
+        self.instance_name = "default"
 
-    fn __getitem__[
-        T:Component,
-        n:StringLiteral
-    ](self)->UnsafePointer[T]:
-        try:
-            return self.states[n].bitcast[T]()
-        except e: ...
-        return UnsafePointer[T]()
-
+    fn __bool__(self)->Bool: return self.type!="default"
+    
+    fn __init__[T:CollectionElement](inout self,owned arg:T):
+        var tmp = UnsafePointer[T].alloc(1)
+        initialize_pointee_move(tmp,arg)
+        self.value = tmp.bitcast[NoneType]()
+        self.rendered = False
+        self.type= "default"
+        self.instance_name = "default"
+    
+    fn __getitem__[T:AnyType](inout self)->Reference[
+        T,
+        __mlir_attr.`1: i1`,
+        __lifetime_of(self)
+    ]:
+        return self.value.bitcast[T]().__refitem__()
+    
+    fn Del[T:CollectionElement](inout self):
+        destroy_pointee(self.value.bitcast[T]())
+        self.value.free()
+        self.type = "default"
 
 @value
 struct ComponentManager[*Ts:Component]:
-    var states: Dict[
-        String,     #InstanceName
-        UnsafePointer[NoneType]
-    ]
-    var types: Dict[String,String] #InstanceName,ComponentName
-    var previously_rendered_instances: List[String] #InstanceNames
+    var states: List[Capsule]
 
     fn __init__(inout self):
         constrained[
@@ -34,10 +52,6 @@ struct ComponentManager[*Ts:Component]:
         ]()
         
         self.states = __type_of(self.states)()
-        self.types = __type_of(self.types)()
-        self.previously_rendered_instances = 
-            __type_of(self.previously_rendered_instances)()
-
     
     fn RenderIntoJson[First:Bool=False](
         inout self, 
@@ -66,52 +80,36 @@ struct ComponentManager[*Ts:Component]:
         except e: print("RenderToJson",e)
         return None
     
-    fn RenderComponentsIntoElements[first:Bool](
+    fn RenderComponentIntoElements[first:Bool,T:Component](
         inout self,
         inout arg: Element
     ):
-        #TODO: check not instance_name rendered twice
-        @parameter
-        if first: self.previously_rendered_instances.clear() 
-        
-        if arg.component:
-            var tmp = arg.component._value_copy()
-            @parameter
-            fn loop[I:Int]():
-                if is_component[Ts[I]](tmp.component_name): 
-                    self.TsRenderInto[Ts[I]](arg,tmp)
-            unroll[loop,len(VariadicList(Ts))]()
-            _=tmp
-        
-        for i in arg.inner:
-            if i[].isa[Element]():
-                if i[]._get_ptr[Element]()[].component:
-                    var tmp = i[]._get_ptr[Element]()[]
-                    self.RenderComponentsIntoElements[False](tmp)
-                    i[]._get_ptr[Element]()[] = tmp
+        var tmp = arg.component.value()[]
+        self.TsRenderInto[T](arg,tmp)
+
     
     fn CreateInstance[T:Component](
         inout self,
         c:Component_T
-    )->UnsafePointer[T]:
-        var tmp=UnsafePointer[T].alloc(1)
-        initialize_pointee_move(tmp,T())
-        self.states[c.instance_name]=tmp.bitcast[NoneType]()
-        self.types[c.instance_name]=c.component_name
+    ) -> Capsule:
+
+        var tmp = Capsule()
+        tmp.type = T.component_name()
+        tmp.instance_name = c.instance_name
+        tmp.value=T.InitializeStates().value
+        self.states.append(tmp)
         return tmp
     
     fn GetInstance[T:Component](
         inout self,
         c:Component_T
-    )->UnsafePointer[T]:
+    )->Capsule:
+        var tmp_t = T.component_name()
         for k in self.states:
-            if k[] == c.instance_name:
-                try:
-                    var tmp2= self.states[k[]].bitcast[T]()
-                    return tmp2
-                except e: print(e)
-        var tmp = self.CreateInstance[T](c)
-        return tmp
+            if k[].type == tmp_t and k[].instance_name == c.instance_name:
+                return k[]
+
+        return self.CreateInstance[T](c)
 
     fn TsRenderInto[T:Component](
         inout self,
@@ -119,56 +117,46 @@ struct ComponentManager[*Ts:Component]:
         c: Component_T
     ):
         var instance = self.GetInstance[T](c)#T()
-        try: 
-            var tmp=instance[].render(c.props)
-            tmp.attributes["data-instance_name"]=c.instance_name
-            e=tmp
-        except e:print("TsRenderInto",e)
 
-        self.previously_rendered_instances.append(
-            c.instance_name
-        )
+        var tmp=T.Render(instance,c.props)
+
+        tmp.attributes["data-instance_name"]=c.instance_name
+        e=tmp
+
+        for k in self.states:
+            if k[].instance_name == c.instance_name:
+                k[].rendered=True
 
     fn delete_instances[only_unrendered:Bool=False](inout self):
-        var deleted = Dict[String,Bool]()
-        for instance_name in self.states:
-            if self.types.find(instance_name[]):
-                try:
-                    var tmp_ptr = self.states[instance_name[]]
-                    var t= self.types[instance_name[]]
+        var deleted = List[String]()
+        for s in self.states:
+            @parameter
+            if only_unrendered:
+                if s[].rendered == False: deleted.append(s[].instance_name)
+            else:
+                deleted.append(s[].instance_name)
+        
+        print("__del__() :",len(deleted))
+        for i in deleted: 
+            var x = 0
+            for k in self.states:
+                if k[].instance_name == i[]:
                     @parameter
-                    fn loop[I:Int]():
-                        if instance_name[] in deleted: return
-                        if is_component[Ts[I]](t):
-                            try:
-                                @parameter
-                                if only_unrendered:
-                                    var found = False
-                                    for p in self.previously_rendered_instances:
-                                        if p[]==instance_name[]:
-                                            found = True
-                                    if found: return
-                                _=self.types.pop(instance_name[])
-                                deleted[instance_name[]]=True
-                                destroy_pointee(tmp_ptr.bitcast[Ts[I]]())  
-                                tmp_ptr.free()
-                            except e:print("delete_instances/loop",e)
-                    unroll[loop,len(VariadicList(Ts))]()
-                    _=tmp_ptr
-                except e: print("delete_instances",e)
-        try:
-            print("__del__() :",len(deleted))
-            for i in deleted: 
-                var tmp_del = self.states.pop(i[])
-                print("\t",i[])
-        except e: print("delete_instances",e)
-        @parameter
-        if only_unrendered == False: 
-            self.previously_rendered_instances=
-                __type_of(self.previously_rendered_instances)()
-        _=deleted
-        _=self.states
-        _=self.types
+                    fn Iter[I:Int]():
+                        if Ts[I].component_name()== k[].type:
+                            Ts[I].DeinitializeStates(k[])
+                    unroll[Iter,len(VariadicList(Ts))]()
+                    _=self.states.pop(x)
+                x+=1
+            print("\t",i[])
+    
+
+    fn InstanceOf[InstanceName:String](inout self)-> Capsule:
+        for i in self.states:
+            if i[].instance_name == InstanceName:
+                return i[]
+        return Capsule()
+
     
 fn is_component[T:Component](name:String)->Bool: 
     return T.component_name()==name

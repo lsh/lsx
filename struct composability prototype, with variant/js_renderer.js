@@ -39,8 +39,7 @@ function Render(json,instance_name){
                     Event({ 
                         type: "DomEvent" ,
                         event_name: ev_val,
-                        instance_name: instance_n,
-                        data:""
+                        instance_name: instance_n
                     });
                 })
             } 
@@ -50,19 +49,7 @@ function Render(json,instance_name){
                     Event({ 
                         type: "DomEvent" ,
                         event_name: ev_val,
-                        instance_name: instance_n,
-                        data:""
-                    });
-                })
-            }
-            if (ev == "Change"){
-                el.addEventListener("change",(e)=>{
-                    console.log(ev_val,e.target.value)
-                    Event({ 
-                        type: "DomEvent" ,
-                        event_name: ev_val,
-                        instance_name: instance_n,
-                        data: e.target.value
+                        instance_name: instance_n
                     });
                 })
             }

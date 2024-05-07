@@ -2,57 +2,22 @@ from utils.variant import Variant
 from Helpers import *
 from DomEvent import EventHandler
 from collections import Optional
-from Component import Component_T, ComponentStateless
+from Component import Component_T
 from ComponentManager import *
-from app import m
 
 #TODO: Splat: fn H[T:List[Variant[Component,Html]]]()->Element)
 
 fn H[T:Component](
-    InstanceName:String,
+    InstanceName:String, 
+    **args:AnyThing
 )->Element:
     var tmp = Element("")
-
     tmp.component = Component_T(
         instance_name=InstanceName,
         component_name=T.component_name(),
-        props = Capsule()
+        props = args._dict
     )
-    m.RenderComponentIntoElements[False,T](tmp)
-
     return tmp
-
-fn H[T:Component,TProps:CollectionElement](
-    InstanceName:String,
-    owned Props: TProps
-)->Element:
-    var tmp = Element("")
-    var p = Capsule(Props^)
-    p.type="props"
-    tmp.component = Component_T(
-        instance_name=InstanceName,
-        component_name=T.component_name(),
-        props = p
-    )
-    m.RenderComponentIntoElements[False,T](tmp)
-
-    p.Del[TProps]()
-    return tmp^
-
-fn H[T:ComponentStateless,TProps:CollectionElement](
-    owned Props: TProps
-)->Element:
-    var p = Capsule(Props^)
-    p.type="props"
-    var tmp = T.Render(p)
-    p.Del[TProps]()
-    return tmp^
-
-fn H[T:ComponentStateless](
-)->Element:
-    var p = Capsule()
-    var tmp = T.Render(p^)
-    return tmp^
 
 trait Html:
     @staticmethod
@@ -70,7 +35,6 @@ fn H[T:Html](
     **kwargs: String
 ) -> Element: 
     var tmp = Element(T.tag())
-    tmp.component = None
     for k in kwargs:
         try:tmp.attributes[k[]]=kwargs[k[]]
         except e:print(e)
@@ -94,7 +58,7 @@ fn H[T:Html](
             if arg.isa[CSS_T]():
                 tmp.attributes["style"]=arg.take[CSS_T]().value
     return tmp
-@value
+
 struct Element:
     var component: Optional[Component_T]
     var tag: String
@@ -148,11 +112,6 @@ struct Button:
 struct Br:
     @staticmethod
     fn tag()->String: return "br"
-
-@value
-struct Input:
-    @staticmethod
-    fn tag()->String: return "input"
 
 
 

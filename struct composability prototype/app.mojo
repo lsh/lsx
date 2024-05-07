@@ -1,51 +1,3 @@
-# Integration prototype 🔥❤️🐍
-
-> [!NOTE]
-> This prototype was made to ameliorate design of LSX.
-> It should not be used for anything in production (lots of UnsafePointer).
-
-Hope this will be useful to people that wan't to make web-frameworks too
-
-Lukas is working on lsx, the goal is to use 100% lsx with a wrapper on top if necessary
-
-Currently, it's just prototyping with the idea to see what to do
-
-# ⚠️ 
-- Start a socket, http-server: ```ip: 127.0.0.1 port: 8080```
-- Probably many unfreed pointers (need help)
-- No current support for multiple clients/visitors, a session system would be neededdd
-
-# Why
-- By having another use case for the design, we can identify what could be done in order to ameliorate it.
-- Its fun to program in mojo
-- further the development of web-frameworks 
-
-# What is done so far:
-- Reusable components
-- Stateless components
-- init and deinit on mount and unmount
-- Rendering from a tree on the client-side with JS
-- Basic event passing to instances of components
-- Props
-
-# Challenges
-- Instance name cannot use underscores (don't know why)
-- Probably more things
-
-# Current conclusions
-- LSX is a nice and expressive way to build a DOM, deserves attention and work
-    - great degree of composability
-    - very user-friendly (**kwargs and *args, for example)
-- Mojo is awesome
-
-# Available features that could bring more to LSX:
-  - functions with same name and different signature ! 
-
-# Possible feature request:
-  - ```__struct_name_of[App]() -> StringLiteral: "App"``` (struct name)
-
-# Example:
-```mojo
 from Helpers import *
 from DomEvent import *
 from DomTree import *
@@ -280,4 +232,3 @@ struct HelloWorld(ComponentStateless):
             return H[Div](
                 H[Span]("Hello world")
             )
-```
