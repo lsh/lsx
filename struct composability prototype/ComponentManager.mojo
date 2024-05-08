@@ -23,11 +23,13 @@ struct Capsule(CollectionElement):
     
     fn __init__[T:CollectionElement](inout self,owned arg:T):
         var tmp = UnsafePointer[T].alloc(1)
-        initialize_pointee_move(tmp,arg)
+        initialize_pointee_move(tmp,arg^)
         self.value = tmp.bitcast[NoneType]()
         self.rendered = False
         self.type= "default"
         self.instance_name = "default"
+
+
     
     fn __getitem__[T:AnyType](inout self)->Reference[
         T,
@@ -93,10 +95,9 @@ struct ComponentManager[*Ts:Component]:
         c:Component_T
     ) -> Capsule:
 
-        var tmp = Capsule()
+        var tmp = Capsule(T())
         tmp.type = T.component_name()
         tmp.instance_name = c.instance_name
-        tmp.value=T.InitializeStates().value
         self.states.append(tmp)
         return tmp
     
@@ -117,9 +118,9 @@ struct ComponentManager[*Ts:Component]:
         c: Component_T
     ):
         var instance = self.GetInstance[T](c)#T()
-
-        var tmp=T.Render(instance,c.props)
-
+        var tmp_i = move_from_pointee(instance.value.bitcast[T]())
+        var tmp=T.Render(tmp_i,c.props)
+        initialize_pointee_move(instance.value.bitcast[T](),tmp_i^)
         tmp.attributes["data-instance_name"]=c.instance_name
         e=tmp
 
@@ -144,7 +145,9 @@ struct ComponentManager[*Ts:Component]:
                     @parameter
                     fn Iter[I:Int]():
                         if Ts[I].component_name()== k[].type:
-                            Ts[I].DeinitializeStates(k[])
+                            var tmp_ = k[].value.bitcast[Ts[I]]()
+                            _=move_from_pointee(tmp_)
+                            tmp_.free()
                     unroll[Iter,len(VariadicList(Ts))]()
                     _=self.states.pop(x)
                 x+=1

@@ -66,13 +66,21 @@ struct Server:
                             fn _loop[I:Int]():
                                 if is_component[m_.Ts[I]](instance[].type):
                                     var tmp_capsule:Capsule = instance[]
-                                    m_.Ts[I].Event(tmp_capsule , DomEvent(
+                                    var tmp_i = move_from_pointee(tmp_capsule.value.bitcast[m_.Ts[I]]())
+        
+
+        
+                                    var ref:UnsafePointer[m_.Ts[I]] = tmp_capsule[m_.Ts[I]]
+                                    m_.Ts[I].Event(
+                                        tmp_i , 
+                                        DomEvent(
                                         "",
                                         "type",
                                         event_name,
                                         event_data,
                                         )
                                     )
+                                    initialize_pointee_move(tmp_capsule.value.bitcast[m_.Ts[I]](),tmp_i^)
                                     
                             unroll[_loop,len(VariadicList(m_.Ts))]()
                             

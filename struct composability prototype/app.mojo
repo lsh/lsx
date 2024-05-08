@@ -11,7 +11,8 @@ alias m_ = ComponentTypes[
     Menu,
     About,
     Home,
-    CounterWidget
+    CounterWidget,
+    TodoList
 ]
 
 var m=ComponentManager[
@@ -31,34 +32,28 @@ fn main():
     s^.Stop()
 
     
-@value
-struct AppState():
-    var page:String
-    var title:String
 
+@value
 struct App(Component):
     @staticmethod
     fn component_name()->String: return "App"
-    
-    @staticmethod
-    fn InitializeStates()->Capsule:
-        return AppState("Home","Default title")
+    var title:String
+    var page:String
 
-    @staticmethod
-    fn DeinitializeStates(owned states:Capsule):
-        states.Del[AppState]()
+    fn __init__(inout self):
+        self.page = "home"
+        self.title="Default app title"
 
-    @staticmethod
-    fn Event(owned self:Capsule , e:DomEvent):
+    fn Event(inout self , e:DomEvent):
         if e.name == "title_edited":
-            self[AppState][].title=e.data
+            self.title=e.data
         
     @staticmethod
-    fn Render(owned states: Capsule, owned props:Capsule) -> Element:
+    fn Render(inout self, owned props:Capsule) -> Element:
         var tmp = H[Div]()
-        if states[AppState][].page == "about":
+        if self.page == "about":
             tmp = H[About]("aboutinstance")
-        if states[AppState][].page == "home":
+        if self.page == "home":
             tmp = H[Home]("homeinstance")
         
         return 
@@ -66,10 +61,10 @@ struct App(Component):
                 CSS(
                     width="fit-content",
                 ),
-                H[H1](states[AppState][].title,CSS(`background-color`="deeppink")),
+                H[H1](self.title,CSS(`background-color`="deeppink")),
                 H[Input](
                     On[DomEvent.Change]("title_edited"),
-                    value=states[AppState][].title,
+                    value=self.title,
                     type="text"
                 ),
                 H[H1](
@@ -87,31 +82,29 @@ struct App(Component):
                 H[CounterWidget]("CounterB",String("Increment")),
                 H[Br](),H[Br](),
                 H[HelloWorld](),
-                H[HelloWorld](states[AppState][].title),
+                H[HelloWorld](self.title),
                 
             )
-
+@value
 struct Menu(Component):
     @staticmethod
     fn component_name()->String: return "Menu"
     
-    @staticmethod
-    fn InitializeStates()->Capsule: return Capsule()
-    @staticmethod
-    fn DeinitializeStates(owned states:Capsule):...
-    
-    @staticmethod
-    fn Event(owned states:Capsule , e:DomEvent):
+
+    fn __init__(inout self):
+        ...
+
+
+    fn Event(inout self , e:DomEvent):
         var i = m.InstanceOf["AppInstance"]()
         if i:
             if e.name == "aboutevent":
-                i[AppState][].page="about"
+                i[App][].page="about"
             if e.name == "homeevent":
-                i[AppState][].page="home"
+                i[App][].page="home"
         
-            
-    @staticmethod
-    fn Render(owned states: Capsule, owned props:Capsule) -> Element:
+
+    fn Render(inout self, owned props:Capsule) -> Element:
         var tmp = CSS(height=32,margin=16)
         return
             H[Div](
@@ -127,26 +120,20 @@ struct Menu(Component):
                     tmp
                 )
             )
-
+@value
 struct About(Component):
     @staticmethod
     fn component_name()->String: return "About"
     
+    var counter: Int
+    fn __init__(inout self): 
+        self.counter = 0
 
-    @staticmethod
-    fn InitializeStates()->Capsule: 
-        return String("Hello world")
-    @staticmethod
-    fn DeinitializeStates(owned states:Capsule):
-        states.Del[String]()
-
-
-    @staticmethod
-    fn Event(owned states:Capsule , e:DomEvent):
+    fn Event(inout self , e:DomEvent):
         ...
     
     @staticmethod
-    fn Render(owned states: Capsule, owned props:Capsule) -> Element:
+    fn Render(inout self, owned props:Capsule) -> Element:
         return
             H[Div](
                 CSS(
@@ -156,67 +143,61 @@ struct About(Component):
                 H[H1](
                     "about page"
                 ),
-                H[Span](states[String][])
+                H[Span]("count :"+str(self.counter))
             )
-
+@value
 struct Home(Component):
     @staticmethod
     fn component_name()->String: return "Home"
     
 
-    @staticmethod
-    fn InitializeStates()->Capsule: return Capsule()
-    @staticmethod
-    fn DeinitializeStates(owned states:Capsule):...    
+    fn __init__(inout self): ...
 
-
-    @staticmethod
-    fn Event(owned states:Capsule , e:DomEvent):
-        ...
     
-    @staticmethod
-    fn Render(owned states: Capsule, owned props:Capsule) -> Element:
+    fn Event(inout self , e:DomEvent):
+        ...
+
+    fn Render(inout self, owned props:Capsule) -> Element:
         return
             H[Div](
                 CSS(
                     `background-color`="yellow",
-                    color="blue"
+                    color="blue", padding=4
                 ),
                 H[Span](
                     "home page"
-                )
+                ),
+                H[TodoList]("TodoList1"),
+                H[TodoList]("TodoList2")
             )
 
+@value
 struct CounterWidget(Component):
     @staticmethod
     fn component_name()->String: return "CounterWidget"
     
+    var counter: Int
+    fn __init__(inout self): 
+        self.counter = 0 
     
-    @staticmethod
-    fn InitializeStates()->Capsule: 
-        return Capsule(Int(0))
-    @staticmethod
-    fn DeinitializeStates(owned states:Capsule): 
-        states.Del[Int]()
-    
-
-    @staticmethod
-    fn Event(owned states:Capsule , e:DomEvent):
+    fn Event(inout self , e:DomEvent):
         var p = m.InstanceOf["AppInstance"]()
         if e.name == "change_app_title" and p:
-            states[Int][]+=1
-            p[AppState][].title=
-                states.instance_name+": "+str(states[Int][])
+            self.counter+=1
+            p[App][].title=
+                str(self.counter)
 
-    @staticmethod
-    fn Render(owned states: Capsule, owned props:Capsule) -> Element:
-        var tmp = CSS(margin=8,`background-color`="skyblue")
-        var tmp2 = CSS(`font-size`=16+states[Int][])
+    fn Render(inout self, owned props:Capsule) -> Element:
+        var tmp = CSS(
+            margin=8,`background-color`="skyblue",
+            `font-size`=16+self.counter
+            )
+
         if props:
             return H[Button](
                 props[String][],
                 On[DomEvent.Click]("change_app_title"),
-                tmp,tmp2
+                tmp
             )
         return H[Button]("Default",tmp)
 
@@ -232,3 +213,38 @@ struct HelloWorld(ComponentStateless):
             return H[Div](
                 H[Span]("Hello world")
             )
+
+@value
+struct TodoList(Component):
+    @staticmethod
+    fn component_name()->String: return "todolist"
+
+    var todos: List[String]
+    var editor: String
+
+    fn __init__(inout self):
+        self.todos= List[String]()
+        self.editor = "ok"
+        
+    fn Event(inout self, e:DomEvent):
+        if e.name == "editor_edited": self.editor=e.data
+        if e.name == "add_todo": self.todos.append(self.editor)
+        
+    fn Render(inout self,owned Props:Capsule)->Element:
+        var tmp = H[Div](
+            CSS(`background-color`="white",`font-size`=16,color="black"),
+        )
+        for t in self.todos: tmp.inner.append(
+            H[Div](t[])
+        )
+        return H[Div](
+            CSS(margin=4),
+            H[Input](
+                On[DomEvent.Change]("editor_edited"),
+                value=self.editor,
+                type="text"
+            ),
+            H[Button]("Add",On[DomEvent.Click]("add_todo")),
+            tmp
+        )
+    
